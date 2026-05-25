@@ -1,10 +1,12 @@
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
 from typing import TypedDict, Annotated
-from langchain_core.messages import BaseMessage #, HumanMessage
-from langgraph.checkpoint.memory import MemorySaver
+from langchain_core.messages import BaseMessage , HumanMessage
+# from langgraph.checkpoint.memory import MemorySaver
+from langgraph.checkpoint.sqlite import SqliteSaver
 from langchain_google_genai import ChatGoogleGenerativeAI
 from dotenv import load_dotenv
+import sqlite3
 
 load_dotenv()
 
@@ -28,10 +30,13 @@ def chat_node(state:ChatState):
     # add to messages
     return {'messages': [response]}
 
+# DataBase
+conn = sqlite3.connect(database='ChatbotDB.db',check_same_thread=False)
+
+checkpointer = SqliteSaver(conn=conn)
+
 
 # graph construction
-
-checkpointer = MemorySaver()
 graph = StateGraph(ChatState)
 
 graph.add_node('chat_node', chat_node)
@@ -54,3 +59,23 @@ chatbot = graph.compile(checkpointer=checkpointer)
 
 #     if message_chunk.content:
 #         print(message_chunk.content, end= " ", flush = True)
+
+
+
+# test
+
+# CONFIG = {'configurable': {'thread_id': 'thread-2'}}
+
+# response = chatbot.invoke({
+#         'messages': [HumanMessage(content='Hi my name is john, can you introduce yourself?')],
+#     }, config = CONFIG
+# )
+
+# print(response['messages'][-1].content)
+
+def retrieve_all_threads():
+    all_threads =set()
+    for checkpoint in checkpointer.list(None):
+        all_threads.add(checkpoint.config['configurable']['thread_id'])
+    return list(all_threads)
+    
